@@ -1,0 +1,8 @@
+/target
+
+# saída gerada pelo app (regenerável a cada execução)
+/relatorio.json
+
+# binários nativos e modelos de ASR: pesados, baixados por scripts/instalar_vosk.sh
+models/asr/lib/*.so
+models/asr/vosk-model-*

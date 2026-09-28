@@ -1,0 +1,31 @@
+[package]
+name = "venda-detector"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# CLI: derive gera o parser de argumentos a partir de uma struct (veja src/cli.rs)
+clap = { version = "4", features = ["derive"] }
+
+# Serialização: derive gera código para transformar structs em JSON (veja src/report.rs)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Erros: derive gera Display/From para o enum de erros (veja src/error.rs)
+thiserror = "2"
+
+# Logs estruturados (veja as chamadas tracing::info!/debug! no código)
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Leitura/escrita de arquivos WAV
+hound = "3"
+
+# ASR real (Vosk): OPCIONAL — só compila se você usar --features vosk.
+# O crate `vosk` são bindings seguros sobre a biblioteca C libvosk.so,
+# que fica em models/asr/lib/ (baixe com: ./scripts/instalar_vosk.sh)
+vosk = { version = "0.3", optional = true }
+
+[features]
+# `cargo build --features vosk` ativa o transcritor real
+vosk = ["dep:vosk"]

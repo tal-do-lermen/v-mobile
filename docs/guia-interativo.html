@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>venda-detector — Guia Interativo de Rust</title>
+<style>
+  :root{
+    --bg:#0d1117; --bg2:#161b22; --bg3:#1f2630; --borda:#30363d;
+    --txt:#e6edf3; --txt2:#9aa7b3; --verde:#3fb950; --verde2:#1a7f37;
+    --laranja:#f0883e; --azul:#58a6ff; --roxo:#bc8cff; --verm:#f85149;
+    --amarelo:#e3b341; --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; line-height:1.55;}
+  header{position:sticky; top:0; z-index:10; background:var(--bg2); border-bottom:1px solid var(--borda); padding:14px 20px;}
+  header h1{font-size:1.15rem; font-weight:700;}
+  header h1 span{color:var(--verde);}
+  header p{color:var(--txt2); font-size:.85rem; margin-top:2px;}
+  nav{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;}
+  .tab{background:var(--bg3); border:1px solid var(--borda); color:var(--txt2); padding:8px 16px; border-radius:8px; cursor:pointer; font-size:.9rem; font-weight:600;}
+  .tab:hover{color:var(--txt); border-color:var(--txt2);}
+  .tab.ativa{background:var(--verde2); border-color:var(--verde); color:#fff;}
+  main{max-width:1100px; margin:0 auto; padding:20px;}
+  section[hidden]{display:none;}
+  h2{font-size:1.05rem; margin-bottom:10px; color:var(--azul);}
+  .card{background:var(--bg2); border:1px solid var(--borda); border-radius:10px; padding:16px; margin-bottom:14px;}
+  .muted{color:var(--txt2); font-size:.88rem;}
+
+  /* ---------- SIMULADOR ---------- */
+  .controles{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px;}
+  button.btn{background:var(--bg3); border:1px solid var(--borda); color:var(--txt); padding:8px 18px; border-radius:8px; cursor:pointer; font-size:.9rem; font-weight:600;}
+  button.btn:hover{border-color:var(--verde); color:var(--verde);}
+  button.btn:disabled{opacity:.35; cursor:not-allowed;}
+  button.btn.play{background:var(--verde2); border-color:var(--verde); color:#fff;}
+  button.btn.play:hover{color:#fff; filter:brightness(1.15);}
+  .etiqueta-etapa{margin-left:auto; font-size:.85rem; color:var(--txt2); font-family:var(--mono);}
+  .chips{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;}
+  .chip{font-size:.72rem; font-family:var(--mono); padding:4px 10px; border-radius:20px; border:1px solid var(--borda); color:var(--txt2); background:var(--bg2);}
+  .chip.on{border-color:var(--verde); color:var(--verde); background:#12261a;}
+  .chip.fim{border-color:var(--azul); color:var(--azul); background:#101b2b;}
+  .grade-sim{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:14px;}
+  @media(max-width:860px){.grade-sim{grid-template-columns:1fr;}}
+  canvas{width:100%; display:block; background:#0a0e14; border:1px solid var(--borda); border-radius:8px;}
+  .viz-titulo{font-size:.75rem; font-family:var(--mono); color:var(--txt2); margin:10px 0 4px; text-transform:uppercase; letter-spacing:.05em;}
+  .caixa-dados{background:#0a0e14; border:1px solid var(--borda); border-radius:8px; padding:12px; font-family:var(--mono); font-size:.82rem; overflow-x:auto; white-space:pre-wrap; word-break:break-word;}
+  pre.codigo{background:#0a0e14; border:1px solid var(--borda); border-radius:8px; padding:12px 0; font-family:var(--mono); font-size:.78rem; line-height:1.5; overflow-x:auto; counter-reset:linha;}
+  pre.codigo .ln{display:block; padding:0 12px 0 44px; position:relative; white-space:pre;}
+  pre.codigo .ln::before{counter-increment:linha; content:counter(linha); position:absolute; left:0; width:32px; text-align:right; color:#3d4652;}
+  pre.codigo .ln.hl{background:rgba(63,185,80,.14); box-shadow:inset 2px 0 0 var(--verde);}
+  .com{color:#6a9955;} .kw{color:#ff7bb8;} .tipo{color:#58a6ff;} .str{color:#e3b341;} .num{color:#f0883e;} .mac{color:#bc8cff;} .fn{color:#d2a8ff;}
+  .explica{border-left:3px solid var(--verde); padding:10px 14px; background:var(--bg2); border-radius:0 8px 8px 0; margin-top:14px; font-size:.92rem;}
+  .explica b{color:var(--verde);}
+  .explica .rotulo{display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--verde); margin-bottom:4px;}
+  mark.kw2{background:rgba(227,179,65,.25); color:var(--amarelo); border-radius:4px; padding:1px 4px; font-weight:600; cursor:help;}
+  .barra-fora{background:var(--bg3); border-radius:6px; height:22px; overflow:hidden; margin-top:10px; border:1px solid var(--borda);}
+  .barra-dentro{height:100%; width:0%; background:linear-gradient(90deg,var(--verde2),var(--verde)); transition:width .9s ease; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; font-size:.75rem; font-weight:700; color:#fff; min-width:fit-content;}
+  .veredito{margin-top:12px; font-size:1.15rem; font-weight:800; text-align:center; padding:10px; border-radius:8px; display:none;}
+  .veredito.venda{display:block; background:rgba(63,185,80,.15); color:var(--verde); border:1px solid var(--verde);}
+  .veredito.nvenda{display:block; background:rgba(248,81,73,.12); color:var(--verm); border:1px solid var(--verm);}
+  .jkey{color:var(--azul);} .jstr{color:var(--verde);} .jnum{color:var(--laranja);} .jbool{color:var(--roxo);}
+  .terminal{background:#0a0e14; border:1px solid var(--borda); border-radius:8px; padding:12px; font-family:var(--mono); font-size:.82rem; white-space:pre-wrap; word-break:break-word;}
+  .terminal .prompt{color:var(--verde); font-weight:700;}
+  .terminal .saidas{color:var(--txt2);}
+
+  /* ---------- SIGA O DADO ---------- */
+  .timeline{position:relative; padding-left:34px;}
+  .timeline::before{content:''; position:absolute; left:12px; top:8px; bottom:8px; width:2px; background:var(--borda);}
+  .tl-item{position:relative; margin-bottom:14px; opacity:0; transform:translateY(12px); transition:all .5s ease; display:none;}
+  .tl-item.mostra{display:block; opacity:1; transform:none;}
+  .tl-item::before{content:''; position:absolute; left:-28px; top:18px; width:12px; height:12px; border-radius:50%; background:var(--verde); box-shadow:0 0 8px var(--verde);}
+  .tl-item .arquivo{font-family:var(--mono); font-size:.72rem; color:var(--laranja); text-transform:uppercase; letter-spacing:.06em;}
+  .tl-item h3{font-size:.98rem; margin:2px 0 6px;}
+  .papo{background:#0a0e14; border:1px solid var(--borda); border-radius:8px; padding:10px 12px; font-family:var(--mono); font-size:.8rem; margin-top:8px; overflow-x:auto; white-space:pre-wrap;}
+  .destaque-valor{color:var(--amarelo); font-weight:700;}
+
+  /* ---------- CONCEITOS ---------- */
+  .progresso-caixa{display:flex; align-items:center; gap:12px; margin-bottom:16px;}
+  .progresso-barra{flex:1; height:10px; background:var(--bg3); border-radius:6px; overflow:hidden;}
+  .progresso-fill{height:100%; background:var(--verde); width:0%; transition:width .5s;}
+  .conceito{margin-bottom:18px;}
+  .conceito h3{color:var(--roxo); font-size:1rem; margin-bottom:8px;}
+  .conceito p{font-size:.9rem; margin-bottom:8px;}
+  .conceito code{font-family:var(--mono); background:var(--bg3); padding:1px 6px; border-radius:4px; font-size:.85em; color:var(--amarelo);}
+  .outra-lang{border:1px dashed var(--azul); border-radius:8px; padding:10px 12px; margin:10px 0; font-size:.85rem;}
+  .outra-lang b{color:var(--azul);}
+  .quiz{border-top:1px solid var(--borda); margin-top:12px; padding-top:12px;}
+  .quiz .pergunta{font-weight:600; font-size:.92rem; margin-bottom:8px;}
+  .opcoes{display:grid; gap:6px;}
+  .opcao{text-align:left; background:var(--bg3); border:1px solid var(--borda); color:var(--txt); padding:9px 12px; border-radius:8px; cursor:pointer; font-size:.86rem; font-family:inherit;}
+  .opcao:hover{border-color:var(--azul);}
+  .opcao:disabled{cursor:default; opacity:.85;}
+  .opcao.certa{border-color:var(--verde); background:rgba(63,185,80,.15); color:var(--verde); font-weight:600;}
+  .opcao.errada{border-color:var(--verm); background:rgba(248,81,73,.12); color:var(--verm);}
+  .feedback{margin-top:8px; font-size:.84rem; display:none; padding:8px 12px; border-radius:6px;}
+  .feedback.ok{display:block; background:rgba(63,185,80,.1); border:1px solid var(--verde2); color:var(--verde);}
+  .feedback.nok{display:block; background:rgba(248,81,73,.08); border:1px solid #6e2b28; color:var(--verm);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>venda-detector <span>▸</span> Guia Interativo de Rust</h1>
+  <p>Simulação autônoma do pipeline — não precisa do Rust nem de servidor. Abra e estude.</p>
+  <nav>
+    <button class="tab ativa" data-alvo="sim">① Simulador do pipeline</button>
+    <button class="tab" data-alvo="dado">② Siga o dado</button>
+    <button class="tab" data-alvo="conceitos">③ Conceitos + quizzes</button>
+  </nav>
+</header>
+
+<main>
+<!-- ================= ABA 1: SIMULADOR ================= -->
+<section id="sim">
+  <div class="controles">
+    <button class="btn" id="btnReset">↺ Recomeçar</button>
+    <button class="btn" id="btnAnterior">◀ Anterior</button>
+    <button class="btn play" id="btnAvancar">Próxima etapa ▶</button>
+    <button class="btn play" id="btnPlay">▶ Animação automática</button>
+    <span class="etiqueta-etapa" id="etapaAtual">etapa 1/7</span>
+  </div>
+  <div class="chips" id="chips"></div>
+
+  <div class="grade-sim">
+    <div>
+      <div class="viz-titulo" id="vizTitulo">visualização</div>
+      <div id="vizArea"></div>
+    </div>
+    <div>
+      <div class="viz-titulo" id="codigoTitulo">código rust</div>
+      <pre class="codigo" id="codigoArea"></pre>
+    </div>
+  </div>
+  <div class="explica" id="explicaArea"></div>
+</section>
+
+<!-- ================= ABA 2: SIGA O DADO ================= -->
+<section id="dado" hidden>
+  <div class="card">
+    <h2>Siga o dado pelo pipeline</h2>
+    <p class="muted">Acompanhamos <b class="destaque-valor">UMA amostra de áudio</b> (a do primeiro pico de volume, t ≈ 0.50 s)
+    desde o arquivo .wav no disco até virar parte da decisão "VENDA" no JSON.
+    Isso é o ownership de Rust na prática: o dado muda de TIPO e de DONO a cada etapa.</p>
+    <div style="margin-top:12px">
+      <button class="btn play" id="btnDadoProx">Revelar próximo passo ▶</button>
+      <button class="btn" id="btnDadoReset">↺ Recomeçar</button>
+    </div>
+  </div>
+  <div class="timeline" id="timeline"></div>
+</section>
+
+<!-- ================= ABA 3: CONCEITOS ================= -->
+<section id="conceitos" hidden>
+  <div class="progresso-caixa">
+    <span class="muted" id="progressoTxt">Quiz: 0/8 respondidas</span>
+    <div class="progresso-barra"><div class="progresso-fill" id="progressoFill"></div></div>
+    <button class="btn" id="btnZerar">Zerar progresso</button>
+  </div>
+  <div id="conceitosArea"></div>
+</section>
+</main>
+
+<script>
+'use strict';
+/* =====================================================================
+   GUIA INTERATIVO DO venda-detector
+   Tudo é SIMULADO aqui dentro (mesmos números do app Rust real):
+   - áudio sintético igual ao de datasets/golden/exemplo.wav
+   - VAD com a MESMA lógica de src/vad.rs (janelas de 30 ms, RMS, limiar 0.02)
+   - transcrição = texto do MockTranscritor de src/transcribe.rs
+   - classificador = MESMA tabela de pesos de src/classify.rs
+   ===================================================================== */
+
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/* ---------- realce de sintaxe Rust simples (depois do esc) ---------- */
+function hlRust(linha){
+  if(/^\s*\/\//.test(linha)) return '<span class="com">'+esc(linha)+'</span>';
+  let r = esc(linha);
+  r = r.replace(/(".+?")/g,'<span class="str">$1</span>');
+  r = r.replace(/\b(fn|let|mut|pub|use|match|if|else|for|in|return|struct|impl|enum|trait|Self|self|as|const|static|where|dyn|mod|crate|loop|while|break|move|ref)\b/g,'<span class="kw">$1</span>');
+  r = r.replace(/\b(Ok|Err|Some|None|Vec|String|Path|PathBuf|Result|Option|Box|f32|f64|i16|u32|usize|bool|true|false)\b/g,'<span class="tipo">$1</span>');
+  r = r.replace(/(#\[[^\]]*\])/g,'<span class="mac">$1</span>');
+  r = r.replace(/\b(\d+\.?\d*)\b/g,'<span class="num">$1</span>');
+  return r;
+}
+function renderCodigo(linhas, hlDe, hlAte){
+  // linhas: array de strings; realça o intervalo [hlDe..hlAte] (1-based)
+  return linhas.map((l,i)=>{
+    const n=i+1; const on = n>=hlDe && n<=hlAte;
+    return '<span class="ln'+(on?' hl':'')+'">'+hlRust(l)+'</span>';
+  }).join('');
+}
+
+/* ---------- troca de abas ---------- */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('ativa'));
+    t.classList.add('ativa');
+    ['sim','dado','conceitos'].forEach(id=>{
+      document.getElementById(id).hidden = (id!==t.dataset.alvo);
+    });
+    if(t.dataset.alvo==='sim') desenhar();
+  });
+});
+
+/* =====================================================================
+   PARTE A — DADOS SIMULADOS (idênticos aos do app Rust)
+   ===================================================================== */
+const TAXA = 16000;
+
+function gerarAudio(){
+  const s=[];
+  const sil = ms => { for(let i=0;i<TAXA*ms/1000;i++) s.push(0); };
+  const fala = (freq,ms)=>{
+    const n = Math.floor(TAXA*ms/1000);
+    for(let i=0;i<n;i++){
+      const t=i/TAXA;
+      const env=0.55+0.45*Math.sin(2*Math.PI*2.5*t);
+      s.push(env*Math.sin(2*Math.PI*freq*t)*0.8);
+    }
+  };
+  sil(500); fala(440,2500); sil(400); fala(620,3000); sil(600);
+  return s;
+}
+const AUDIO = gerarAudio();               // 112000 amostras, 7.0 s
+const DURACAO = AUDIO.length/TAXA;        // 7.0
+
+/* VAD em JS — MESMA lógica de src/vad.rs */
+function vad(samples, limiar=0.02){
+  const porJanela = Math.max(1, Math.floor(TAXA*30/1000)); // 480 amostras
+  const energias=[]; const comVoz=[];
+  for(let i=0;i<samples.length;i+=porJanela){
+    const w=samples.slice(i,i+porJanela);
+    const rms=Math.sqrt(w.reduce((a,x)=>a+x*x,0)/w.length);
+    energias.push(rms);
+    if(rms>limiar) comVoz.push(i/porJanela);
+  }
+  // agrupa índices consecutivos
+  const grupos=[];
+  for(const i of comVoz){
+    const u=grupos[grupos.length-1];
+    if(u && u[u.length-1]===i-1) u.push(i); else grupos.push([i]);
+  }
+  const segs=grupos.map(g=>({
+    inicio: Math.max(0, g[0]*0.03-0.1),
+    fim:    Math.min(DURACAO,(g[g.length-1]+1)*0.03+0.1)
+  }));
+  return {energias, segs};
+}
+const VAD = vad(AUDIO);
+const SEGMENTOS = VAD.segs;               // [0.38–3.10] e [3.29–6.52]
+
+const TRANSCRICAO = 'Bom dia! Gostaria de fechar o pedido hoje. Qual o preço com desconto? Pode ser no cartão em três parcelas?';
+
+/* tabela de pesos — idêntica a src/classify.rs */
+const PALAVRAS = [
+  ['fechar o pedido',3],['preço',2],['preco',2],['orçamento',2],['orcamento',2],
+  ['desconto',2],['proposta',2],['pagamento',1.5],['parcelas',1],['cartão',1],
+  ['cartao',1],['boleto',1],['à vista',1.5],['garantia',1],['contrato',1.5]
+];
+const SCORE_REF=7, LIMIAR=0.5;
+function classificar(txt){
+  const t=txt.toLowerCase(); let score=0; const achadas=[];
+  for(const [p,w] of PALAVRAS) if(t.includes(p)){score+=w; achadas.push([p,w]);}
+  const conf=Math.min(1,score/SCORE_REF);
+  return {score,conf,eVenda:conf>=LIMIAR,achadas};
+}
+const DECISAO = classificar(TRANSCRICAO); // {score:9, conf:1, eVenda:true,...}
+
+/* =====================================================================
+   PARTE B — SIMULADOR (máquina de etapas)
+   ===================================================================== */
+
+/* ---------- snippets de código (espelhos condensados dos arquivos) ---------- */
+const COD = {
+cli:[
+'#[derive(Parser, Debug)]',
+'#[command(name = "venda-detector", about = "Detecta ligação de venda em .wav")]',
+'pub struct Cli {',
+'    pub audio: PathBuf,',
+'    #[arg(short, long)]',
+'    pub saida: Option<PathBuf>,',
+'    #[arg(short, long, default_value_t = 0.02)]',
+'    pub limiar: f32,',
+'    #[arg(short, long)]',
+'    pub verboso: bool,',
+'}',
+'',
+'fn main() {',
+'    let cli = Cli::parse();  // clap gera este parser em tempo de compilação',
+'    match pipeline::executar(&cli) {',
+'        Ok(relatorio) => imprimir_resumo(&relatorio),',
+'        Err(e) => { eprintln!("Erro: {e}"); std::process::exit(1); }',
+'    }',
+'}'
+],
+audio:[
+'pub struct AudioData {',
+'    pub amostras: Vec<f32>,   // dona dos dados, no heap',
+'    pub taxa_amostragem: u32, // 16000',
+'}',
+'',
+'impl AudioData {',
+'    pub fn carregar(caminho: &Path) -> Resultado<Self> {',
+'        if !caminho.exists() {',
+'            return Err(DetectorError::ArquivoNaoEncontrado(/*…*/));',
+'        }',
+'        let leitor = hound::WavReader::open(caminho)?;',
+'        let amostras: Vec<f32> = leitor',
+'            .into_samples::<i16>()',
+'            .collect::<hound::Result<Vec<i16>>>()?',
+'            .into_iter()',
+'            .map(|s| s as f32 / 32768.0)   // i16 → f32 em [-1, 1]',
+'            .collect();',
+'        Ok(Self { amostras, taxa_amostragem: spec.sample_rate })',
+'    }',
+'    pub fn duracao_segundos(&self) -> f32 {',
+'        self.amostras.len() as f32 / self.taxa_amostragem as f32',
+'    }',
+'}'
+],
+vad1:[
+'const DURACAO_JANELA_MS: usize = 30;  // janelas de 30 ms',
+'',
+'fn rms(janela: &[f32]) -> f32 {       // &[f32] = slice: visão SEM copiar',
+'    if janela.is_empty() { return 0.0; }',
+'    let soma_quadrados: f32 = janela.iter().map(|&a| a * a).sum();',
+'    (soma_quadrados / janela.len() as f32).sqrt()',
+'}',
+'',
+'pub fn detectar_fala(audio: &AudioData, limiar: f32) -> Vec<Segmento> {',
+'    let amostras_por_janela = (taxa * DURACAO_JANELA_MS / 1000).max(1);',
+'',
+'    let janelas_com_voz: Vec<usize> = audio',
+'        .amostras',
+'        .chunks(amostras_por_janela)     // fatia o áudio em janelas',
+'        .enumerate()',
+'        .filter_map(|(i, janela)| {',
+'            if rms(janela) > limiar { Some(i) } else { None }',
+'        })',
+'        .collect();                      // índices das janelas com voz',
+'        // … continua no próximo passo →'
+],
+vad2:[
+'    // grupos de janelas vizinhas: [[16,17,…,102],[109,…,217]]',
+'    let mut grupos: Vec<Vec<usize>> = Vec::new();',
+'    for &i in &janelas_com_voz {',
+'        match grupos.last_mut() {',
+'            Some(g) if g.last().copied() == Some(i - 1) => g.push(i),',
+'            _ => grupos.push(vec![i]),',
+'        }',
+'    }',
+'',
+'    // índice → segundos, com padding de 0.1 s nas bordas',
+'    for grupo in &grupos {',
+'        let mut inicio = grupo[0] as f32 * duracao_janela_s - PADDING_S;',
+'        let mut fim = (grupo[último] as f32 + 1.0) * duracao_janela_s + PADDING_S;',
+'        inicio = inicio.max(0.0);        // trava dentro do áudio',
+'        fim = fim.min(duracao);',
+'        segmentos.push(Segmento { inicio, fim });',
+'    }',
+'}'
+],
+transcribe:[
+'pub trait Transcritor {                 // O CONTRATO',
+'    fn transcrever(&mut self, audio: &AudioData, segs: &[Segmento])',
+"        -> Resultado<String>;",
+'    fn nome(&self) -> &\'static str;',
+'}',
+'',
+'impl Transcritor for MockTranscritor {  // versão de estudo',
+'    fn transcrever(&mut self, _audio: &AudioData, segs: &[Segmento])',
+"        -> Resultado<String> {",
+'        if segs.is_empty() { return Ok(String::new()); }',
+'        Ok("Bom dia! Gostaria de fechar o pedido hoje. …".to_string())',
+'    }',
+'    fn nome(&self) -> &\'static str { "mock" }',
+'}',
+'',
+'// factory: devolve QUALQUER transcritor por trás do mesmo tipo',
+'pub fn criar_transcritor(usar_vosk: bool, modelo: &Path)',
+'    -> Resultado<Box<dyn Transcritor>> {',
+'    #[cfg(feature = "vosk")]',
+'    if usar_vosk { return Ok(Box::new(VoskTranscritor::novo(modelo)?)); }',
+'    Ok(Box::new(MockTranscritor))',
+'}'
+],
+classify:[
+'const PALAVRAS_CHAVE: &[(&str, f32)] = &[',
+'    ("fechar o pedido", 3.0), ("preço", 2.0), ("desconto", 2.0),',
+'    ("parcelas", 1.0), ("cartão", 1.0), /* … */',
+'];',
+'const SCORE_REFERENCIA: f32 = 7.0;   // top-3 palavras somadas',
+'',
+'pub fn classificar(transcricao: &str) -> Decisao {',
+'    let texto = transcricao.to_lowercase();',
+'    let mut score = 0.0f32;',
+'    let mut encontradas: Vec<String> = Vec::new();',
+'',
+'    for (palavra, peso) in PALAVRAS_CHAVE {   // desestrutura a tupla',
+'        if texto.contains(palavra) {',
+'            score += peso;',
+'            encontradas.push((*palavra).to_string());',
+'        }',
+'    }',
+'    let confianca = (score / SCORE_REFERENCIA).clamp(0.0, 1.0);',
+'    Decisao { e_venda: confianca >= 0.5, confianca, palavras_chave: encontradas }',
+'}'
+],
+report:[
+'#[derive(Debug, Serialize)]',
+'#[serde(rename_all = "snake_case")]',
+'pub struct Relatorio {',
+'    pub arquivo: String,',
+'    pub duracao_segundos: f32,',
+'    pub transcritor: String,',
+'    pub segmentos: Vec<Segmento>,',
+'    pub transcricao: String,',
+'    pub decisao: Decisao,',
+'}',
+'',
+'impl Relatorio {',
+'    pub fn salvar(&self, caminho: &Path) -> Resultado<()> {',
+'        let json = serde_json::to_string_pretty(self)?;  // struct → JSON',
+'        std::fs::write(caminho, json)?;                  // → disco',
+'        Ok(())',
+'    }',
+'}'
+]
+};
+
+/* ---------- helpers de visualização ---------- */
+const vizArea = document.getElementById('vizArea');
+
+function canvasWave(h=170){ 
+  vizArea.insertAdjacentHTML('beforeend',
+    '<div class="viz-titulo">forma de onda</div><canvas id="cvWave" width="1000" height="'+h+'"></canvas>');
+  return document.getElementById('cvWave');
+}
+function desenharOnda(seg=false){
+  const cv=document.getElementById('cvWave'); const ctx=cv.getContext('2d');
+  ctx.fillStyle='#0a0e14'; ctx.fillRect(0,0,cv.width,cv.height);
+  const X=t=>t/DURACAO*cv.width;
+  if(seg){
+    ctx.fillStyle='rgba(63,185,80,.16)';
+    for(const s of SEGMENTOS) ctx.fillRect(X(s.inicio),0,X(s.fim)-X(s.inicio),cv.height);
+    ctx.fillStyle='#3fb950';
+    for(const s of SEGMENTOS){
+      ctx.font='11px monospace';
+      ctx.fillText(s.inicio.toFixed(2)+'s',X(s.inicio)+4,14);
+    }
+  }
+  // eixo de tempo
+  ctx.strokeStyle='#1d242e'; ctx.fillStyle='#4d5763'; ctx.font='10px monospace';
+  for(let s=0;s<=7;s++){ const x=X(s); ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,cv.height); ctx.stroke(); ctx.fillText(s+'s',x+3,cv.height-6); }
+  // onda: min/max por coluna
+  ctx.strokeStyle='#58a6ff'; ctx.lineWidth=1; ctx.beginPath();
+  const passo=AUDIO.length/cv.width;
+  for(let px=0;px<cv.width;px++){
+    let mn=1,mx=-1;
+    for(let i=Math.floor(px*passo);i<Math.floor((px+1)*passo);i++){
+      if(AUDIO[i]<mn)mn=AUDIO[i]; if(AUDIO[i]>mx)mx=AUDIO[i];
+    }
+    const y0=(1-mx)/2*cv.height, y1=(1-mn)/2*cv.height;
+    ctx.moveTo(px+0.5,y0); ctx.lineTo(px+0.5,Math.max(y1,y0+0.5));
+  }
+  ctx.stroke();
+}
+function desenharEnergia(){
+  vizArea.insertAdjacentHTML('beforeend',
+    '<div class="viz-titulo">energia RMS por janela de 30 ms (limiar 0.02 = linha laranja)</div>'+
+    '<canvas id="cvEn" width="1000" height="120"></canvas>');
+  const cv=document.getElementById('cvEn'); const ctx=cv.getContext('2d');
+  ctx.fillStyle='#0a0e14'; ctx.fillRect(0,0,cv.width,cv.height);
+  const maxE=Math.max(...VAD.energias);
+  const bw=cv.width/VAD.energias.length;
+  VAD.energias.forEach((e,i)=>{
+    const h=(e/maxE)*100;
+    ctx.fillStyle = e>0.02 ? '#3fb950' : '#232b36';
+    ctx.fillRect(i*bw, cv.height-h-18, Math.max(1,bw-1), h);
+  });
+  // linha do limiar
+  const yL=cv.height-(0.02/maxE)*100-18;
+  ctx.strokeStyle='#f0883e'; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(0,yL); ctx.lineTo(cv.width,yL); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#f0883e'; ctx.font='11px monospace';
+  ctx.fillText('limiar 0.02 — janelas verdes passaram', 8, yL-6);
+}
+function caixaHTML(classe,conteudo){
+  vizArea.insertAdjacentHTML('beforeend','<div class="'+classe+'" style="margin-top:10px">'+conteudo+'</div>');
+}
+
+/* ---------- as 7 etapas ---------- */
+const ETAPAS = [
+{ nome:'CLI', arquivo:'src/cli.rs + src/main.rs',
+  exec:()=>{
+    vizArea.innerHTML='';
+    caixaHTML('terminal',
+      '<span class="prompt">$</span> cargo run -- datasets/golden/exemplo.wav --saida relatorio.json\n'+
+      '<span class="saidas">   Compilando venda-detector v0.1.0…\n   argumentos parseados → Cli { audio: "exemplo.wav", saida: Some("relatorio.json"), limiar: 0.02 }</span>');
+  },
+  codigo:['cli',13,18],
+  explica:'<span class="rotulo">Etapa 0 — a porta de entrada</span>'+
+  '<b>Cli::parse()</b>: a struct <code>Cli</code> tem <code>#[derive(Parser)]</code>, então o clap GEROU o código que lê os argumentos — você não escreveu parser nenhum. '+
+  'Repare no <code>match</code> no main: Rust <i>obriga</i> a tratar <code>Ok</code> e <code>Err</code>; não existe caminho esquecido.'},
+{ nome:'audio.rs', arquivo:'src/audio.rs',
+  exec:()=>{
+    vizArea.innerHTML='';
+    canvasWave(); desenharOnda(false);
+    caixaHTML('caixa-dados',
+      'AudioData {\n  amostras: Vec&lt;f32&gt; [112000 valores em −1.0 … 1.0],\n  taxa_amostragem: <span class="num">16000</span>,\n}\n<span class="com">// duração = 112000 / 16000 = 7.00 s</span>');
+  },
+  codigo:['audio',7,19],
+  explica:'<span class="rotulo">Etapa 1 — decodificar</span>'+
+  'O <code>hound</code> lê o WAV e entrega amostras <code>i16</code> (inteiros de −32768 a 32767). Dividimos por 32768 para virar <code>f32</code> em [−1, 1]. '+
+  'A cadeia <code>.into_samples() → .collect()? → .map() → .collect()</code> é estilo funcional: sem um único <code>for</code>. '+
+  '<b>Ownership:</b> <code>AudioData</code> agora É dono dos 112 KB de áudio; quando sair de escopo, o Rust libera sozinho (sem garbage collector).'},
+{ nome:'VAD: energia', arquivo:'src/vad.rs (parte 1)',
+  exec:()=>{
+    vizArea.innerHTML='';
+    canvasWave(110); desenharOnda(false); desenharEnergia();
+  },
+  codigo:['vad1',2,17],
+  explica:'<span class="rotulo">Etapa 2 — medir energia</span>'+
+  'O áudio é fatiado em janelas de 30 ms com <code>.chunks(480)</code>. Para cada janela calculamos o <b>RMS</b> (raiz da média dos quadrados): silêncio → ≈0, voz → alto. '+
+  'Conceito novo: <code>&amp;[f32]</code> é um <b>slice</b> — uma visão emprestada do Vec, SEM copiar os dados. <code>.filter_map()</code> mantém só o que devolve <code>Some</code>.'},
+{ nome:'VAD: segmentos', arquivo:'src/vad.rs (parte 2)',
+  exec:()=>{
+    vizArea.innerHTML='';
+    canvasWave(); desenharOnda(true);
+    caixaHTML('caixa-dados',
+      'segmentos = [\n  Segmento { inicio: <span class="num">0.38</span>, fim: <span class="num">3.10</span> },\n  Segmento { inicio: <span class="num">3.29</span>, fim: <span class="num">6.52</span> },\n]  <span class="com">// silêncio descartado: só 5.95 s úteis</span>');
+  },
+  codigo:['vad2',1,17],
+  explica:'<span class="rotulo">Etapa 3 — agrupar em fala</span>'+
+  'Janelas verdes VIZINHAS viram um grupo (<code>match grupos.last_mut()</code> decide: continua o grupo ou abre novo). Cada grupo vira um <code>Segmento</code> em segundos, com padding de 0.1 s para não cortar palavras. '+
+  'O <code>match</code> com guarda <code>if g.last() == Some(i-1)</code> mostra o pattern matching que substitui vários <code>if</code>s de outras linguagens.'},
+{ nome:'transcribe.rs', arquivo:'src/transcribe.rs',
+  exec:()=>{
+    vizArea.innerHTML='';
+    caixaHTML('viz-titulo','transcrição (MockTranscritor — texto fixo para estudo)');
+    const div=document.createElement('div');
+    div.className='caixa-dados'; div.id='txtVivo'; div.style.minHeight='90px';
+    vizArea.appendChild(div);
+    // revela palavra a palavra
+    const palavras=TRANSCRICAO.split(' '); let i=0;
+    clearInterval(window._txtTimer);
+    div.textContent='';
+    window._txtTimer=setInterval(()=>{
+      div.textContent+=palavras[i]+' '; i++;
+      if(i>=palavras.length){clearInterval(window._txtTimer);}
+    },110);
+    caixaHTML('caixa-dados','<span class="com">// tipo em tempo de compilação:</span> Box&lt;dyn Transcritor&gt;\n<span class="com">// quem está dentro? MockTranscritor (sem --features vosk)</span>');
+  },
+  codigo:['transcribe',0,12],
+  explica:'<span class="rotulo">Etapa 4 — transcrever</span>'+
+  'Aqui vive a <b>trait</b> — o conceito mais importante deste projeto. <code>trait Transcritor</code> é um contrato: "quem assinar, sabe transcrever". '+
+  'O pipeline recebe <code>Box&lt;dyn Transcritor&gt;</code> e NÃO SABE se dentro há o mock ou o Vosk — polimorfismo de verdade. '+
+  'Com <code>--features vosk</code> o <code>#[cfg]</code> compila a IA real; sem, nem existe no binário.'},
+{ nome:'classify.rs', arquivo:'src/classify.rs',
+  exec:()=>{
+    vizArea.innerHTML='';
+    caixaHTML('viz-titulo','palavras-chave encontradas (peso entre parênteses)');
+    let txt=esc(TRANSCRICAO);
+    for(const [p,w] of DECISAO.achadas){
+      const re=new RegExp('('+p.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+      txt=txt.replace(re,'<mark class="kw2" title="peso '+w+'">$1 ('+w+')</mark>');
+    }
+    caixaHTML('caixa-dados',txt);
+    caixaHTML('viz-titulo','score acumulado (referência: top-3 = 7.0)');
+    caixaHTML('barra-fora','<div class="barra-dentro" id="barraScore"></div>');
+    caixaHTML('viz-titulo','decisão');
+    caixaHTML('veredito '+(DECISAO.eVenda?'venda':'nvenda'),
+      (DECISAO.eVenda?'✔ VENDA':'✘ não-venda')+' — confiança '+Math.round(DECISAO.conf*100)+'%');
+    setTimeout(()=>{ const b=document.getElementById('barraScore'); if(b){b.style.width=(DECISAO.conf*100)+'%'; b.textContent='score '+DECISAO.score.toFixed(1)+' / 7.0';} },60);
+  },
+  codigo:['classify',7,18],
+  explica:'<span class="rotulo">Etapa 5 — classificar</span>'+
+  'Loop simples sobre a tabela de pesos: cada palavra achada soma no <code>score</code> (passe o mouse nas marcas amarelas). '+
+  '<code>(score / 7.0).clamp(0.0, 1.0)</code> normaliza a confiança. O texto do mock contém 5 palavras (3+2+2+1+1 = 9.0) → teto de 100%.'},
+{ nome:'report.rs', arquivo:'src/report.rs',
+  exec:()=>{
+    vizArea.innerHTML='';
+    caixaHTML('viz-titulo','relatorio.json — saída final');
+    const json={
+      arquivo:'datasets/golden/exemplo.wav', duracao_segundos:7.0, transcritor:'mock',
+      segmentos:SEGMENTOS.map(s=>({inicio:+s.inicio.toFixed(2),fim:+s.fim.toFixed(2)})),
+      transcricao:TRANSCRICAO,
+      decisao:{e_venda:true,confianca:1.0,palavras_chave:DECISAO.achadas.map(a=>a[0])}
+    };
+    let j=JSON.stringify(json,null,2)
+      .replace(/"([^"]+)":/g,'<span class="jkey">"$1"</span>:')
+      .replace(/: "([^"]*)"/g,': <span class="jstr">"$1"</span>')
+      .replace(/: (-?\d+\.?\d*)/g,': <span class="jnum">$1</span>')
+      .replace(/: (true|false)/g,': <span class="jbool">$1</span>');
+    caixaHTML('caixa-dados',j);
+  },
+  codigo:['report',11,16],
+  explica:'<span class="rotulo">Etapa 6 — relatório</span>'+
+  '<code>#[derive(Serialize)]</code> gerou o código que transforma <code>Relatorio</code> em JSON — as structs que viajaram pelo pipeline viram o arquivo de saída sem nenhum trabalho manual. '+
+  'Dois <code>?</code> seguidos (gerar JSON + gravar arquivo) convertem dois erros DIFERENTES para o mesmo <code>DetectorError</code>, graças ao <code>#[from]</code>.'}
+];
+
+let etapa=0, timerPlay=null;
+const chipsEl=document.getElementById('chips');
+ETAPAS.forEach((e,i)=>{ chipsEl.insertAdjacentHTML('beforeend','<span class="chip" id="chip'+i+'">'+(i)+'. '+e.nome+'</span>'); });
+
+function aplicarEtapa(){
+  const e=ETAPAS[etapa];
+  e.exec();
+  document.getElementById('codigoTitulo').textContent='código rust — '+e.arquivo;
+  document.getElementById('codigoArea').innerHTML=renderCodigo(COD[e.codigo[0]],e.codigo[1],e.codigo[2]);
+  document.getElementById('explicaArea').innerHTML=e.explica;
+  document.getElementById('etapaAtual').textContent='etapa '+(etapa+1)+'/'+ETAPAS.length;
+  ETAPAS.forEach((_,i)=>{
+    const c=document.getElementById('chip'+i);
+    c.className='chip'+(i<etapa?' fim':i===etapa?' on':'');
+  });
+  document.getElementById('btnAnterior').disabled=(etapa===0);
+  document.getElementById('btnAvancar').disabled=(etapa===ETAPAS.length-1);
+}
+function avancar(){ if(etapa<ETAPAS.length-1){etapa++; aplicarEtapa();} else pararPlay(); }
+function recuar(){ if(etapa>0){etapa--; aplicarEtapa();} }
+function resetar(){ etapa=0; pararPlay(); aplicarEtapa(); }
+function alternarPlay(){
+  if(timerPlay){ pararPlay(); return; }
+  document.getElementById('btnPlay').textContent='⏸ Pausar';
+  timerPlay=setInterval(avancar,2600); avancar();
+}
+function pararPlay(){ if(timerPlay){clearInterval(timerPlay); timerPlay=null;} document.getElementById('btnPlay').textContent='▶ Animação automática'; }
+document.getElementById('btnAvancar').addEventListener('click',()=>{pararPlay();avancar();});
+document.getElementById('btnAnterior').addEventListener('click',()=>{pararPlay();recuar();});
+document.getElementById('btnReset').addEventListener('click',resetar);
+document.getElementById('btnPlay').addEventListener('click',alternarPlay);
+
+/* =====================================================================
+   PARTE C — SIGA O DADO
+   ===================================================================== */
+// amostra escolhida: índice 8009 → t ≈ 0.5006 s (pico do 1º tom de 440 Hz)
+const IDX=8009;
+const tLocal=(IDX/TAXA)-0.5;
+const i16=Math.round((0.55+0.45*Math.sin(2*Math.PI*2.5*tLocal))*Math.sin(2*Math.PI*440*tLocal)*0.8*32767);
+const f32=i16/32768;
+const janelaIdx=Math.floor(IDX/480);
+const rmsJanela=VAD.energias[janelaIdx];
+
+const PASSOS_DADO=[
+{ arquivo:'disco · exemplo.wav', titulo:'Nasce como i16 dentro do WAV',
+  cod:'byte-bruto no arquivo: <span class="destaque-valor">'+i16+'</span>  (i16: inteiro de −32768 a 32767)',
+  exp:'O WAV guarda SOM (número inteiro de 16 bits). Este valor é a pressão sonora do segundo 1.0 da gravação.'},
+{ arquivo:'src/audio.rs', titulo:'Vira f32 normalizado dentro de Vec<f32>',
+  cod:'i16 <span class="destaque-valor">'+i16+'</span>  →  f32 <span class="destaque-valor">'+f32.toFixed(4)+'</span>   // divisão por 32768.0',
+  exp:'<b>Troca de dono:</b> o Vec amostras AGORA é dono deste f32. Quando AudioData sair de escopo, o Rust desaloca tudo sozinho — nenhum memory leak possível.'},
+{ arquivo:'src/vad.rs', titulo:'É emprestado (&) para calcular energia',
+  cod:'janela '+janelaIdx+' (0.99s–1.02s) → RMS <span class="destaque-valor">'+rmsJanela.toFixed(3)+'</span> &gt; limiar 0.02  →  marcada COM VOZ',
+  exp:'<b>Borrowing:</b> o VAD recebe <code>&amp;AudioData</code> — uma visita, não um roubo. Ele lê o f32, calcula o RMS e devolve o controle. O original segue intocado.'},
+{ arquivo:'src/vad.rs', titulo:'Sua janela faz parte do Segmento 1',
+  cod:'Segmento { inicio: <span class="destaque-valor">0.38</span>, fim: <span class="destaque-valor">3.10</span> }   // sua janela ('+(janelaIdx*0.03).toFixed(2)+'s) está dentro',
+  exp:'O f32 que era uma amostra solta agora é ABRANGIDO por um struct novo, dono de dois números. O áudio em si nem vai para a transcrição — só o mapa dos trechos úteis.'},
+{ arquivo:'src/transcribe.rs', titulo:'O segmento vira TEXTO (String)',
+  cod:'Box&lt;dyn Transcritor&gt;.transcrever(&amp;audio, &amp;segmentos)\n  → String: <span class="destaque-valor">"fechar o pedido … preço … desconto …"</span>',
+  exp:'<b>Polimorfismo:</b> para quem chama, é "qualquer coisa que implemente Transcritor". A amostra de áudio já cumpriu seu papel; o dado agora é TEXTO, com dono novo.'},
+{ arquivo:'src/classify.rs', titulo:'O texto acumula score',
+  cod:'"fechar o pedido" +3.0  ·  "preço" +2.0  ·  "desconto" +2.0  ·  "parcelas" +1.0  ·  "cartão" +1.0\nscore = <span class="destaque-valor">9.0</span> → confiança = min(1, 9/7) = <span class="destaque-valor">1.0</span> → e_venda = <span class="destaque-valor">true</span>',
+  exp:'&str emprestado entra, <b>Decisao</b> nova sai ( ownership de novo!). Cada transformação é uma função pura: entrada emprestada → saída dona.'},
+{ arquivo:'src/report.rs', titulo:'Vira JSON no disco',
+  cod:'"segmentos": [{"inicio": 0.38, "fim": 3.1}, …],\n"decisao": { "e_venda": <span class="destaque-valor">true</span>, "confianca": <span class="destaque-valor">1.0</span>, … }',
+  exp:'Fim da linha: a amostra i16 que começou no disco virou parte de um JSON. Nenhum estágio precisou saber do anterior — só dos TIPOS que recebe e devolve. <b>Esse é o segredo de projetar em Rust.</b>'}
+];
+const tl=document.getElementById('timeline');
+PASSOS_DADO.forEach((p,i)=>{
+  tl.insertAdjacentHTML('beforeend',
+   '<div class="tl-item" id="tl'+i+'"><div class="card">'+
+   '<div class="arquivo">'+p.arquivo+'</div><h3>'+(i+1)+'. '+p.titulo+'</h3>'+
+   '<div class="papo">'+p.cod+'</div><p class="muted" style="margin-top:8px">'+p.exp+'</p></div></div>');
+});
+let dadoAtual=-1;
+function passoDado(){
+  dadoAtual++;
+  if(dadoAtual>=PASSOS_DADO.length){dadoAtual=PASSOS_DADO.length-1; return;}
+  document.getElementById('tl'+dadoAtual).classList.add('mostra');
+  document.getElementById('btnDadoProx').disabled=(dadoAtual===PASSOS_DADO.length-1);
+  document.getElementById('btnDadoProx').textContent = dadoAtual===PASSOS_DADO.length-1 ? '✔ percurso completo' : 'Revelar próximo passo ▶';
+}
+function resetDado(){
+  dadoAtual=-1;
+  PASSOS_DADO.forEach((_,i)=>document.getElementById('tl'+i).classList.remove('mostra'));
+  document.getElementById('btnDadoProx').disabled=false;
+  document.getElementById('btnDadoProx').textContent='Revelar próximo passo ▶';
+}
+document.getElementById('btnDadoProx').addEventListener('click',passoDado);
+document.getElementById('btnDadoReset').addEventListener('click',resetDado);
+
+/* =====================================================================
+   PARTE D — CONCEITOS + QUIZZES
+   ===================================================================== */
+const CONCEITOS=[
+{ id:'own', titulo:'1. Ownership (dona dos dados)',
+  html:'<p>Cada valor em Rust tem <b>UM ÚNICO dono</b>. Quando o dono sai de escopo, o valor é destruído (memória liberada na hora, sem garbage collector).</p>'+
+  '<p>No projeto: <code>AudioData.amostras</code> (um <code>Vec&lt;f32&gt;</code>) é dono de 112 mil floats. Em <code>pipeline.rs</code>, <code>segmentos</code> e <code>transcricao</code> são <b>movidos</b> para dentro de <code>Relatorio</code> — depois disso não podem mais ser usados (o compilador NÃO deixa, erro de compilação, não bug em produção).</p>'+
+  '<div class="outra-lang"><b>Comparação:</b> em Python/Java/JS todos compartilham a mesma referência (ninguém é dono) e um garbage collector limpa depois. Em C você limpa na mão (e erra). Rust resolve isso em tempo de COMPILAÇÃO.</div>',
+  quiz:[{ q:'Em pipeline.rs: let relatorio = Relatorio { segmentos, transcricao, … }; Depois dessa linha, o que acontece se escrevermos println!("{:?}", segmentos);?',
+    o:['Imprime os segmentos normalmente','Erro de COMPILAÇÃO: value moved','Erro em tempo de execução','Imprime vazio'], c:1,
+    f:'Ao mover um valor para dentro de outra struct, o dono muda. Usar depois é erro de compilação — exatamente o tipo de bug que Rust elimina antes de rodar.'}]},
+{ id:'bor', titulo:'2. Borrowing (& = emprestar sem tirar a dona)',
+  html:'<p>Em vez de passar a posse, emprestamos: <code>&amp;T</code> (só leitura) ou <code>&amp;mut T</code> (leitura+escrita). Regras: muitos <code>&amp;T</code> <i>ou</i> um único <code>&amp;mut T</code> — nunca os dois juntos.</p>'+
+  '<p>No projeto: <code>vad::detectar_fala(&amp;audio, limiar)</code> empresta o áudio. O pipeline continua dono e pode passar o MESMO áudio emprestado para o transcritor em seguida.</p>'+
+  '<div class="outra-lang"><b>Comparação:</b> é como passar um arquivo PDF como "somente leitura" em vez de enviar o original. Em outras linguagens isso é convenção; em Rust, é verificado pelo compilador.</div>',
+  quiz:[{ q:'Por que audio.rs::carregar recebe &Path em vez de PathBuf (dono)?',
+    o:['Porque Path é menor que PathBuf','Porque não precisamos ser donos do caminho — só ler','Porque PathBuf não pode ser impresso','Não há diferença'], c:1,
+    f:'& = empréstimo. Quem chamou mantém o caminho e pode reutilizar. Regra de ouro Rust: funções pedem o mínimo de posse possível.'},
+   { q:'O que &mut self em transcrever(&mut self, …) significa?',
+    o:['O método pode alterar o estado interno do transcritor','O método é thread-safe','O retorno é mutável','Nada, é só estilo'], c:0,
+    f:'&mut = empréstimo mutável e EXCLUSIVO. O Vosk guarda contexto de decodificação entre chunks de áudio — por isso precisa de mut. E só pode existir um &mut por vez: o compilador impede corridas de dados.'}]},
+{ id:'res', titulo:'3. Result, ? e o enum DetectorError',
+  html:'<p>Não existe exceção. Funções que podem falhar retornam <code>Result&lt;T, E&gt;</code>. O operador <code>?</code> diz: "se deu Err, SAIA da função levando o erro; se deu Ok, desempacote e siga".</p>'+
+  '<p>No projeto, um erro do hound atravessa 3 camadas até o main com um único <code>?</code> por camada, graças ao <code>#[from]</code> do thiserror que converte tipos de erro automaticamente.</p>'+
+  '<div class="outra-lang"><b>Comparação:</b> é o try/catch explícito: o tipo da função JÁ DECLARA que pode falhar. Impossível esquecer de tratar (o compilador avisa quando um Result é ignorado).</div>',
+  quiz:[{ q:'Em AudioData::carregar, o que a linha hound::WavReader::open(caminho)?; faz se o arquivo estiver corrompido?',
+    o:['Retorna null','Trava o programa (panic!)','Retorna Err imediatamente da função, convertendo para DetectorError','Tenta novamente'], c:2,
+    f:'? no Err = return Err(Convertido). A conversão existe porque error.rs marca a variante com #[from] hound::Error.'},
+   { q:'Por que o main usa match pipeline::executar(&cli) { Ok… Err… } em vez de .unwrap()?',
+    o:['Estilo apenas','unwrap() trava o app com panic em qualquer erro; o match trata o erro com mensagem amigável','match é mais rápido','unwrap não existe em main'], c:1,
+    f:'unwrap() = "confio que dá certo" e panic! se não der. Em app de verdade: match + mensagem + exit(1) — o usuário vê "arquivo não encontrado", não um crash feio.'}]},
+{ id:'trait', titulo:'4. Traits e Box<dyn T> (polimorfismo)',
+  html:'<p><code>trait Transcritor</code> declara O QUE um transcritor faz (métodos), sem dizer COMO. <code>impl Transcritor for MockTranscritor</code> e <code>for VoskTranscritor</code> são duas implementações.</p>'+
+  '<p><code>Box&lt;dyn Transcritor&gt;</code> = ponteiro para "qualquer implementador", decidido em EXECUÇÃO. A factory <code>criar_transcritor()</code> devolve o mock ou o vosk dentro do mesmo Box — o pipeline nem percebe a diferença.</p>'+
+  '<div class="outra-lang"><b>Comparação:</b> interface do Java/TS. A diferença: em Rust você pode implementar a trait em QUALQUER tipo, e o despacho dinâmico (dyn) é opt-in e explícito.</div>',
+  quiz:[{ q:'Se amanhã quisermos um TranscritorGoogle, o que muda no pipeline.rs?',
+    o:['Precisa reescrever o pipeline','NADA: só criar o novo struct, impl Transcritor para ele e a factory passá-lo a devolver','Precisa trocar Box<dyn> por generics','Precisa remover o mock'], c:1,
+    f:'Esse é o poder da trait: o contrato é estável, as implementações podem crescer. O pipeline nem recompila sua lógica — só a factory muda uma linha.'}]},
+{ id:'der', titulo:'5. #[derive(...)] — código gerado de graça',
+  html:'<p>Derives geram implementações de traits em tempo de compilação. O projeto usa vários: <code>#[derive(Parser)]</code> (clap: parser de CLI), <code>#[derive(Serialize)]</code> (serde: struct → JSON), <code>#[derive(Error)]</code> (thiserror: mensagens de erro), <code>#[derive(Debug)]</code> (imprimir com {:?}).</p>'+
+  '<p>É por isso que <code>Relatorio</code> vira JSON sem função de conversão manual: o serde GEROU o conversor ao compilar.</p>'+
+  '<div class="outra-lang"><b>Comparação:</b> lembra decorators/annotations de Python e Java — mas aqui o efeito é gerar código Rust real, sem reflexão em runtime (rápido e sem mágica escondida).</div>',
+  quiz:[{ q:'#[serde(rename_all = "snake_case")] no Relatorio serve para…',
+    o:['Renomear o arquivo de saída','Os campos irem para o JSON como e_venda, duracao_segundos etc.','Acelerar a serialização','Criptografar o JSON'], c:1,
+    f:'Atributos do serde controlam O FORMATO do JSON gerado. Sem isso, os campos Rust (e_venda) já são snake_case; em structs CamelCase o atributo vira essencial.'}]},
+{ id:'cfg', titulo:'6. #[cfg(feature)] e módulos (lib.rs vs main.rs)',
+  html:'<p><code>#[cfg(feature = "vosk")]</code> = "este código SÓ EXISTE se compilar com <code>--features vosk</code>". O binário padrão nem contém a IA — build leve, e a fronteira é declarada no Cargo.toml.</p>'+
+  '<p>E o crate tem dois pontos de entrada: <code>lib.rs</code> (lógica, pub mod…) e <code>main.rs</code> (fino, só cola CLI + pipeline). Isso permite teste de integração importar a lib.</p>'+
+  '<div class="outra-lang"><b>Comparação:</b> parecido com #ifdef de C — mas tipado, por crate, e gerenciado pelo cargo. Muito usado para dependências pesadas opcionais.</div>',
+  quiz:[{ q:'O que acontece se rodar cargo run -- audio.wav --vosk num build SEM a feature?',
+    o:['Compila o Vosk na hora','Crash do binário','Erro amigável: VoskNaoCompilado (variant do nosso enum de erro)','Silenciosamente usa o mock'], c:2,
+    f:'O #[cfg(not(feature))] mantém um bloco que devolve DetectorError::VoskNaoCompilado — falha explícita e clara, nunca comportamento escondido.'}]}
+];
+
+const area=document.getElementById('conceitosArea');
+let total=0, respondidas=0;
+
+function salvarProgresso(){
+  const dados={};
+  document.querySelectorAll('.opcao.certa,.opcao.errada').forEach(b=>{
+    dados[b.dataset.qid]=+b.dataset.idx;
+  });
+  localStorage.setItem('vd_quiz',JSON.stringify(dados));
+}
+function marcarProgresso(){
+  document.getElementById('progressoTxt').textContent='Quiz: '+respondidas+'/'+total+' respondidas';
+  document.getElementById('progressoFill').style.width=(total?respondidas/total*100:0)+'%';
+}
+function responder(btn,qid,certo,idx,fb,feedbackTxt){
+  if(fb.classList.contains('ok')||fb.classList.contains('nok')) return; // já respondeu
+  const bloco=btn.closest('.opcoes');
+  bloco.querySelectorAll('.opcao').forEach((b,i)=>{
+    b.disabled=true;
+    if(i===certo) b.classList.add('certa');
+    else if(b===btn) b.classList.add('errada');
+  });
+  fb.className='feedback '+(idx===certo?'ok':'nok');
+  fb.textContent=(idx===certo?'✔ Correto! ':'✘ Não é essa. ')+feedbackTxt;
+  respondidas++; marcarProgresso(); salvarProgresso();
+}
+
+CONCEITOS.forEach(c=>{
+  const card=document.createElement('div');
+  card.className='card conceito';
+  let html='<h3>'+c.titulo+'</h3>'+c.html+'<div class="quiz">';
+  c.quiz.forEach((q,qi)=>{
+    const qid=c.id+'_'+qi; total++;
+    html+='<div class="pergunta">❓ '+q.q+'</div><div class="opcoes">';
+    q.o.forEach((op,oi)=>{ html+='<button class="opcao" data-qid="'+qid+'" data-idx="'+oi+'">'+String.fromCharCode(65+oi)+') '+op+'</button>'; });
+    html+='</div><div class="feedback" id="fb_'+qid+'"></div>';
+  });
+  html+='</div>';
+  card.innerHTML=html;
+  area.appendChild(card);
+  c.quiz.forEach((q,qi)=>{
+    const qid=c.id+'_'+qi;
+    card.querySelectorAll('.opcao[data-qid="'+qid+'"]').forEach(btn=>{
+      btn.addEventListener('click',()=>responder(btn,qid,q.c,+btn.dataset.idx,document.getElementById('fb_'+qid),q.f));
+    });
+  });
+});
+
+// restaura progresso salvo do localStorage (re-marcando as respostas)
+try{
+  const salvo=JSON.parse(localStorage.getItem('vd_quiz')||'{}');
+  const corretaDe={}, quizDe={};
+  CONCEITOS.forEach(c=>c.quiz.forEach((q,qi)=>{ corretaDe[c.id+'_'+qi]=q.c; quizDe[c.id+'_'+qi]=q; }));
+  respondidas=0;
+  for(const qid in salvo){
+    const escolhido=salvo[qid], correta=corretaDe[qid];
+    if(correta===undefined) continue;
+    const botoes=document.querySelectorAll('.opcao[data-qid="'+qid+'"]');
+    if(!botoes.length) continue;
+    botoes.forEach((b,i)=>{
+      b.disabled=true;
+      if(i===correta) b.classList.add('certa');
+      else if(i===escolhido) b.classList.add('errada');
+    });
+    const fb=document.getElementById('fb_'+qid);
+    fb.className='feedback '+(escolhido===correta?'ok':'nok');
+    fb.textContent=(escolhido===correta?'✔ Correto! ':'✘ Não é essa. ')+quizDe[qid].f;
+    respondidas++;
+  }
+}catch(e){ /* sem localStorage (ex.: file:// restrito): segue sem progresso */ }
+marcarProgresso();
+
+document.getElementById('btnZerar').addEventListener('click',()=>{
+  localStorage.removeItem('vd_quiz'); location.reload();
+});
+
+/* ---------- inicia ---------- */
+aplicarEtapa();
+</script>
+</body>
+</html>

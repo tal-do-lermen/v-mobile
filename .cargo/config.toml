@@ -1,0 +1,28 @@
+# .cargo/config.toml — configuração de build DO PROJETO (afeta todo cargo aqui)
+#
+# Por que este arquivo existe: a feature "vosk" linka contra a biblioteca
+# nativa libvosk.so, que guardamos em models/asr/lib/ (nada é instalado
+# no sistema). O linker precisa saber ONDE ela está, e o binário compilado
+# precisa saber onde encontrá-la NA HORA DE RODAR (rpath).
+#
+#   -L models/asr/lib
+#       diz ao linker (no build) onde procurar -lvosk
+#
+#   -C link-arg=-Wl,-rpath,$ORIGIN/../../models/asr/lib
+#   -C link-arg=-Wl,-rpath,$ORIGIN/../../../models/asr/lib
+#       gravam no binário um "rpath": caminho de busca de bibliotecas em
+#       runtime. $ORIGIN é um atalho do linker dinâmico que significa
+#       "a pasta onde o executável está". O binário principal mora em
+#       target/debug/ (2 níveis até a raiz) e os binários de TESTE em
+#       target/debug/deps/ (3 níveis) — por isso os dois rpaths.
+#       Resultado: `cargo run` e `cargo test` com a feature funcionam
+#       sem exportar LD_LIBRARY_PATH.
+#
+# Sem a feature vosk, estas flags são inofensivas (a pasta pode nem existir).
+
+[build]
+rustflags = [
+    "-L", "models/asr/lib",
+    "-C", "link-arg=-Wl,-rpath,$ORIGIN/../../models/asr/lib",
+    "-C", "link-arg=-Wl,-rpath,$ORIGIN/../../../models/asr/lib",
+]
