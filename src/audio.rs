@@ -65,15 +65,19 @@ impl AudioData {
         // Metadados do arquivo: canais, taxa, bits...
         let spec = leitor.spec();
 
-        // Só suportamos mono: 1 canal.
-        if spec.channels != 1 {
+
+        // Agora ACEITAMOS qualquer nº de canais (mono, estéreo...) e
+        // convertemos para mono mais abaixo (downmix). Só rejeitamos
+        // 0 canais: não existe em WAV válido e a média dividiria por 0.
+        if spec.channels == 0 {
             return Err(DetectorError::FormatoNaoSuportado {
-                detalhe: format!(
-                    "esperado 1 canal (mono), encontrado {}",
-                    spec.channels
-                ),
+                detalhe: "número de canais inválido: 0".to_string(),
             });
         }
+
+        // Quantos canais o arquivo tem (1 = mono, 2 = estéreo...).
+        // `usize` é o tipo que o Rust usa para índices e tamanhos de Vec.
+        let canais = spec.channels as usize;
         // E apenas PCM 16 bits (o formato mais comum para voz).
         if spec.bits_per_sample != 16 || spec.sample_format != hound::SampleFormat::Int {
             return Err(DetectorError::FormatoNaoSuportado {
@@ -87,19 +91,33 @@ impl AudioData {
         // `into_samples::<i16>()` devolve um ITERADOR de Result<i16> —
         // um por amostra, sem carregar tudo de uma vez.
         //
-        // CONCEITO — cadeia de iteradores (estilo funcional, muito Rust):
-        //   .collect::<hound::Result<Vec<i16>>>()?  → consome o iterador e
-        //     monta um Vec<i16>; se QUALQUER amostra falhar, o collect inteiro
-        //     vira Err (o `?` propaga) — não precisamos de nenhum if no meio.
-        //   .into_iter()                            → itera dono do Vec
-        //   .map(|s| s as f32 / 32768.0)            → converte cada i16 em f32
-        //     normalizado (`as` é o cast primitivo de tipos)
-        //   .collect()                              → monta o Vec<f32> final
-        let amostras: Vec<f32> = leitor
+        // ATENÇÃO: num WAV com vários canais as amostras vêm INTERCALADAS.
+        // Um estéreo guarda [L, R, L, R, L, R...] — cada PAR é um "frame",
+        // ou seja, o mesmo instante sonoro gravado nos dois canais.
+        let brutos: Vec<i16> = leitor
             .into_samples::<i16>()
-            .collect::<hound::Result<Vec<i16>>>()?
-            .into_iter()
-            .map(|s| s as f32 / 32768.0)
+            .collect::<hound::Result<Vec<i16>>>()?;
+
+        // CONCEITO — downmix (conversão p/ mono) com `chunks`:
+        //
+        //   .chunks(n)    → fatia o Vec em pedaços de `n` elementos.
+        //     Em estéreo cada chunk é 1 frame: [L, R]. Em mono,
+        //     chunks(1) gera chunks de 1 elemento — o MESMO código
+        //     serve para os dois casos, sem nenhum `if` extra.
+        //   .filter(...)  → descarta um possível frame truncado no fim
+        //     (um arquivo corrompido poderia ter só o L do último frame).
+        //   .map(...)     → condensa o frame em UMA amostra mono: (L+R)/2.
+        //     A soma é feita em f32 porque em i16 daria OVERFLOW:
+        //     32767 + 32767 = 65534, maior que o teto do i16 (32767).
+        //     Somar em float e só depois dividir evita isso.
+        //   .collect()    → monta o Vec<f32> final, já em mono.
+        let amostras: Vec<f32> = brutos
+            .chunks(canais)
+            .filter(|frame| frame.len() == canais)
+            .map(|frame| {
+                let soma: f32 = frame.iter().map(|&s| s as f32 / 32768.0).sum();
+                soma / canais as f32
+            })
             .collect();
 
         // Áudio vazio não faz sentido para o pipeline — erro explícito.
@@ -147,6 +165,27 @@ mod tests {
         w.finalize().unwrap();
     }
 
+    /// Helper: cria um WAV ESTÉREO (2 canais) com um tom diferente em cada
+    /// canal — serve para testar o downmix para mono.
+    fn criar_wav_estereo_teste(caminho: &Path, n_frames: usize, freq_esq: f32, freq_dir: f32) {
+        let spec = WavSpec {
+            channels: 2,
+            sample_rate: 16000,
+            bits_per_sample: 16,
+            sample_format: SampleFormat::Int,
+        };
+        let mut w = WavWriter::create(caminho, spec).unwrap();
+        for i in 0..n_frames {
+            let t = i as f32 / 16000.0;
+            let esq = (0.5 * (2.0 * std::f32::consts::PI * freq_esq * t).sin() * 32767.0) as i16;
+            let dir = (0.5 * (2.0 * std::f32::consts::PI * freq_dir * t).sin() * 32767.0) as i16;
+            // Num estéreo escrevemos o FRAME inteiro: primeiro L, depois R.
+            w.write_sample(esq).unwrap();
+            w.write_sample(dir).unwrap();
+        }
+        w.finalize().unwrap();
+    }
+
     #[test]
     fn carrega_e_calcula_duracao() {
         // Cada teste usa um arquivo único para não brigar com outros testes.
@@ -172,5 +211,23 @@ mod tests {
             resultado,
             Err(DetectorError::ArquivoNaoEncontrado(_))
         ));
+    }
+
+    #[test]
+    fn converte_estereo_para_mono() {
+        let caminho = std::env::temp_dir().join("vd_audio_estereo_teste.wav");
+        criar_wav_estereo_teste(&caminho, 1000, 440.0, 0.0); // 1000 frames; R nulo
+
+        let audio = AudioData::carregar(&caminho).unwrap();
+
+        // 2000 amostras intercaladas viram 1000 mono (1 amostra por frame).
+        assert_eq!(audio.amostras.len(), 1000);
+        assert_eq!(audio.taxa_amostragem, 16000);
+
+        // Canal direito é nulo (freq 0 → seno sempre 0), então cada amostra
+        // mono deve ser EXATAMENTE a metade da esquerda — prova a média.
+        let t = 10.0 / 16000.0;
+        let esperado = 0.5 * (2.0 * std::f32::consts::PI * 440.0 * t).sin();
+        assert!((audio.amostras[10] - esperado / 2.0).abs() < 1e-4);
     }
 }

@@ -56,6 +56,26 @@ pub enum DetectorError {
     /// `--vosk` mas o binário foi compilado sem a feature.
     #[error("Vosk não incluído neste binário. Compile com: cargo build --features vosk")]
     VoskNaoCompilado,
+
+    /// Combinação de argumentos da CLI que não faz sentido
+    /// (nem arquivo nem --stdin, ou os dois ao mesmo tempo).
+    #[error("argumentos inválidos: {0}")]
+    Argumento(String),
+
+    /// Falha de rede/HTTP ao buscar a tabela de palavras-chave na API.
+    /// Não é fatal: o módulo palavras_chave cai para o arquivo local.
+    #[error("API de palavras-chave falhou: {0}")]
+    ApiPalavras(String),
+
+    /// O texto obtido (API ou arquivo) não tem linha nenhuma no formato
+    /// ("palavra", peso) — tabela vazia não serve para classificar.
+    #[error("tabela de palavras-chave inválida: {0}")]
+    TabelaInvalida(String),
+
+    /// Ferramenta externa necessária não encontrada (ex.: ffmpeg para
+    /// reamostrar arquivos que não são 16 kHz).
+    #[error("ferramenta externa indisponível: {0}")]
+    FerramentaExterna(String),
 }
 
 /// Apelido de tipo (type alias). `Resultado<T>` é a mesma coisa que

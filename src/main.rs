@@ -67,6 +67,21 @@ fn imprimir_resumo(r: &venda_detector::report::Relatorio) {
     println!("Arquivo:   {} ({:.1} s)", r.arquivo, r.duracao_segundos);
     println!("Transcritor: {}", r.transcritor);
 
+    // Campos extras do modo progressivo: só aparecem se o modo foi usado.
+    if let Some(seg) = r.detectado_em_seg {
+        println!(
+            "Modo:      progressivo — venda detectada em {:.1}s ({} janela(s))",
+            seg,
+            r.janelas_analisadas.unwrap_or(0)
+        );
+    }
+    if let Some(pct) = r.percentual_processado {
+        println!("Processado: {:.1}% do áudio", pct);
+    }
+    if let Some(fonte) = &r.fonte_palavras {
+        println!("Tabela:    {}", fonte);
+    }
+
     // Lista os segmentos encontrados pelo VAD.
     println!("Segmentos de fala: {}", r.segmentos.len());
     for s in &r.segmentos {

@@ -59,9 +59,20 @@ fn rms(janela: &[f32]) -> f32 {
 /// para quem chamou). Este é o fluxo típico de dados em Rust: funções recebem
 /// empréstimos e retornam donos.
 pub fn detectar_fala(audio: &AudioData, limiar: f32) -> Vec<Segmento> {
+    // Refactor SEM mudança de comportamento: o trabalho real mora na versão
+    // "slice" abaixo; aqui só extraímos os dados que ela precisa do struct.
+    detectar_fala_slice(&audio.amostras, audio.taxa_amostragem, limiar)
+}
+
+/// Analisa UMA FATIA de amostras — é a versão que o escaneamento progressivo
+/// (scan.rs) usa a cada janela de 30 s, sem reprocessar o áudio já visto.
+///
+/// Os tempos dos segmentos são RELATIVOS ao começo da fatia: quem quiser a
+/// posição no áudio completo soma o offset (ex.: começo da janela em segundos).
+pub fn detectar_fala_slice(amostras: &[f32], taxa_amostragem: u32, limiar: f32) -> Vec<Segmento> {
     // Amostras por janela: 30 ms em amostras. Ex.: 16000 Hz * 0.030 s = 480.
     // `.max(1)` evita divisão por zero se a taxa fosse absurda.
-    let taxa = audio.taxa_amostragem as usize;
+    let taxa = taxa_amostragem as usize;
     let amostras_por_janela = (taxa * DURACAO_JANELA_MS / 1000).max(1);
     let duracao_janela_s = DURACAO_JANELA_MS as f32 / 1000.0;
 
@@ -70,8 +81,7 @@ pub fn detectar_fala(audio: &AudioData, limiar: f32) -> Vec<Segmento> {
     // CONCEITO — `chunks`: divide o slice em fatias consecutivas de N itens
     // (a última pode ser menor). `.enumerate()` num iterador entrega
     // (índice, elemento) — como um for com contador.
-    let janelas_com_voz: Vec<usize> = audio
-        .amostras
+    let janelas_com_voz: Vec<usize> = amostras
         .chunks(amostras_por_janela)
         .enumerate()
         // `.filter_map` mantém só o que devolve Some — aqui transformamos
@@ -103,8 +113,8 @@ pub fn detectar_fala(audio: &AudioData, limiar: f32) -> Vec<Segmento> {
     }
 
     // PASSO 3: converte índices de janela em segundos, aplica padding
-    // e recorta para dentro da duração do áudio.
-    let duracao = audio.duracao_segundos();
+    // e recorta para dentro da duração da fatia.
+    let duracao = amostras.len() as f32 / taxa as f32;
     let mut segmentos = Vec::new();
     for grupo in &grupos {
         // grupo[0] e grupo[len-1]: primeiro e último índice do grupo.

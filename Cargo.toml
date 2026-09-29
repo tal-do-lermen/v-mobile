@@ -21,6 +21,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Leitura/escrita de arquivos WAV
 hound = "3"
 
+# Cliente HTTP síncrono — busca as palavras-chave na API (--api-url).
+# Escolhido por ser simples (sem async/tokio): um CLI de terminal não precisa.
+ureq = "2"
+
 # ASR real (Vosk): OPCIONAL — só compila se você usar --features vosk.
 # O crate `vosk` são bindings seguros sobre a biblioteca C libvosk.so,
 # que fica em models/asr/lib/ (baixe com: ./scripts/instalar_vosk.sh)
